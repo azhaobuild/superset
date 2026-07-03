@@ -149,6 +149,7 @@ const AsyncSelect = forwardRef(
     ref: RefObject<AsyncSelectRef>,
   ) => {
     const isSingleMode = mode === 'single';
+    const shouldShowSearch = allowNewOptions ? true : Boolean(showSearch);
     const [selectValue, setSelectValue] = useState(value);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(loading);
@@ -728,18 +729,18 @@ const AsyncSelect = forwardRef(
           // @ts-expect-error
           onPaste={onPaste}
           onPopupScroll={handlePagination}
-          onSearch={showSearch ? handleOnSearch : undefined}
+          onSearch={shouldShowSearch ? handleOnSearch : undefined}
           onSelect={handleOnSelect}
           onClear={handleClear}
           options={fullSelectOptions}
           optionRender={option => <Space>{option.label || option.value}</Space>}
           placeholder={placeholder}
-          showSearch={allowNewOptions ? true : showSearch}
+          showSearch={shouldShowSearch}
           tokenSeparators={tokenSeparators}
           value={selectValue}
           suffixIcon={getSuffixIcon(
             isLoading,
-            Boolean(showSearch),
+            shouldShowSearch,
             isDropdownVisible,
           )}
           menuItemSelectedIcon={
