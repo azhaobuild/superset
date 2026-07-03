@@ -51,6 +51,8 @@ import {
   DeckGLContainerHandle,
   DeckGLContainerStyledWrapper,
 } from '../DeckGLContainer';
+import { addColorToFeatures } from '../utils/addColor';
+import { COLOR_SCHEME_TYPES, ColorSchemeType } from '../utilities/utils';
 import layerGenerators from '../layers';
 import fitViewport, { Viewport } from '../utils/fitViewport';
 import { getMapboxApiKey } from '../utils/mapbox';
@@ -99,6 +101,16 @@ const MultiWrapper = styled.div<{ height: number; width: number }>`
   height: ${({ height }) => height}px;
   width: ${({ width }) => width}px;
 `;
+
+// Default color_scheme_type per color-aware layer type, matching each control
+// panel. Sub-slices arrive as raw saved form data without control-default
+// hydration, so charts saved before this control existed need the default
+// resolved here to keep their configured colors.
+const COLOR_AWARE_LAYER_DEFAULTS: Record<string, ColorSchemeType> = {
+  deck_scatter: COLOR_SCHEME_TYPES.categorical_palette,
+  deck_path: COLOR_SCHEME_TYPES.fixed_color,
+  deck_arc: COLOR_SCHEME_TYPES.fixed_color,
+};
 
 const selectDataMask = createSelector(
   (state: { dataMask?: DataMaskState }) => state.dataMask,
@@ -229,15 +241,43 @@ const DeckMulti = (props: DeckMultiProps) => {
   );
 
   const createLayerFromData = useCallback(
-    (subslice: JsonObject, json: JsonObject): Layer =>
-      // @ts-expect-error TODO(hainenber): define proper type for `form_data.viz_type` and call signature for functions in layerGenerators.
-      layerGenerators[subslice.form_data.viz_type]({
-        formData: subslice.form_data,
-        payload: json,
-        setTooltip,
-        datasource: props.datasource,
-        onSelect: props.onSelect,
-      }),
+    (subslice: JsonObject, json: JsonObject): Layer => {
+      const { form_data: subsliceFormData } = subslice;
+      const defaultColorSchemeType =
+        COLOR_AWARE_LAYER_DEFAULTS[subsliceFormData.viz_type];
+      let layerFormData = subsliceFormData;
+      let payload = json;
+
+      // Resolve per-feature colors as CategoricalDeckGLContainer does when
+      // the layer renders standalone.
+      if (defaultColorSchemeType) {
+        layerFormData = {
+          ...subsliceFormData,
+          color_scheme_type:
+            subsliceFormData.color_scheme_type ?? defaultColorSchemeType,
+        };
+        if (Array.isArray(json?.data?.features)) {
+          payload = {
+            ...json,
+            data: {
+              ...json.data,
+              features: addColorToFeatures(json.data.features, layerFormData),
+            },
+          };
+        }
+      }
+
+      return (
+        // @ts-expect-error TODO(hainenber): define proper type for `form_data.viz_type` and call signature for functions in layerGenerators.
+        layerGenerators[layerFormData.viz_type]({
+          formData: layerFormData,
+          payload,
+          setTooltip,
+          datasource: props.datasource,
+          onSelect: props.onSelect,
+        })
+      );
+    },
     [props.onSelect, props.datasource, setTooltip],
   );
 
@@ -436,8 +476,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         ),
       ).then(slices =>
         slices.filter(
-          (slice): slice is { slice_id: number } & JsonObject =>
-            slice !== null,
+          (slice): slice is { slice_id: number } & JsonObject => slice !== null,
         ),
       ),
     [],
