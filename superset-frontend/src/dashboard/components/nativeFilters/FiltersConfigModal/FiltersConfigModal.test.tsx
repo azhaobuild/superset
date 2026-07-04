@@ -181,6 +181,7 @@ const NAME_REQUIRED_REGEX = /^name is required$/i;
 const COLUMN_REQUIRED_REGEX = /^column is required$/i;
 const PRE_FILTER_REQUIRED_REGEX = /^pre-filter is required$/i;
 const DEFAULT_VALUE_INVALID_REGEX = /choose.*valid value/i;
+const REMOVE_FILTER_BUTTON_REGEX = /Remove filter/i;
 
 const props: FiltersConfigModalProps = {
   isOpen: true,
@@ -975,14 +976,14 @@ test('restores a deleted filter via the "Restore filter" button', async () => {
   const filterContainer = screen.getByTestId('filter-title-container');
   const firstTab = within(filterContainer).getAllByRole('tab')[0];
   fireEvent.click(
-    within(firstTab).getByRole('button', { name: /remove filter/i }),
+    within(firstTab).getByRole('button', { name: REMOVE_FILTER_BUTTON_REGEX }),
   );
 
   expect(
     await screen.findByText(/you have removed this filter/i),
   ).toBeInTheDocument();
   const restoreButton = screen.getByTestId('restore-filter-button');
-  await userEvent.click(restoreButton);
+  userEvent.click(restoreButton);
 
   await waitFor(() => {
     expect(
@@ -1012,12 +1013,12 @@ test('undoes a filter deletion via the sidebar "Undo?" link', async () => {
   const filterContainer = screen.getByTestId('filter-title-container');
   const firstTab = within(filterContainer).getAllByRole('tab')[0];
   fireEvent.click(
-    within(firstTab).getByRole('button', { name: /remove filter/i }),
+    within(firstTab).getByRole('button', { name: REMOVE_FILTER_BUTTON_REGEX }),
   );
 
   const undoButton = await screen.findByTestId('undo-button');
   expect(undoButton).toHaveTextContent(/undo\?/i);
-  await userEvent.click(undoButton);
+  userEvent.click(undoButton);
 
   await waitFor(() => {
     expect(
@@ -1064,9 +1065,7 @@ test('numerical range filter — Range Type selector lets the user pick a displa
   // ensures the post-click assertion proves a state change rather than passing on
   // the default selection.
   expect(
-    document.querySelector(
-      '.ant-select-content-has-value[title="Slider"], .ant-select-selection-item[title="Slider"]',
-    ),
+    document.querySelector('.ant-select-content[title="Slider"]'),
   ).not.toBeInTheDocument();
 
   await userEvent.click(rangeTypeCombobox);
@@ -1075,13 +1074,11 @@ test('numerical range filter — Range Type selector lets the user pick a displa
   });
   await userEvent.click(sliderOption);
 
-  // antd Select renders the active selection as a span whose title attribute is
-  // the picked option's label.
+  // antd 6 renders the active selection in the .ant-select-content element,
+  // whose title attribute is the picked option's label.
   await waitFor(() => {
     expect(
-      document.querySelector(
-        '.ant-select-content-has-value[title="Slider"], .ant-select-selection-item[title="Slider"]',
-      ),
+      document.querySelector('.ant-select-content[title="Slider"]'),
     ).toBeInTheDocument();
   });
 }, 30000);
