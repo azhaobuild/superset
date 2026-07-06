@@ -17,6 +17,8 @@
 
 # pylint: disable=import-outside-toplevel, unused-argument
 
+import re
+
 from pytest_mock import MockerFixture
 
 
@@ -49,3 +51,25 @@ def test_memoized_func(mocker: MockerFixture) -> None:
     cache.get.return_value = 43
     result = decorated(self, "public", cache=True)
     assert result == 43
+
+
+def test_set_and_log_cache_dttm_format(mocker: MockerFixture) -> None:
+    """
+    The ``dttm`` stored in cached payloads must use the exact
+    ``YYYY-MM-DDTHH:MM:SS`` format (no microseconds, no tz offset).
+    """
+    from superset.utils import cache as cache_module
+    from superset.utils.cache import set_and_log_cache
+
+    app = mocker.patch.object(cache_module, "app")
+    app.config = {"CACHE_DEFAULT_TIMEOUT": 60, "STATS_LOGGER": mocker.MagicMock()}
+
+    cache_instance = mocker.MagicMock()
+    cache_instance.cache = mocker.MagicMock()
+
+    set_and_log_cache(cache_instance, "some_key", {"foo": "bar"})
+
+    cache_instance.set.assert_called_once()
+    stored_value = cache_instance.set.call_args.args[1]
+    dttm = stored_value["dttm"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", dttm), dttm
